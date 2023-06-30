@@ -1,0 +1,13 @@
+---
+plugin: aws_ec2
+regions:
+  - ap-northeast-2
+hostnames:
+  - ip-address
+  - private-ip-address
+keyed_groups:
+  - key: tags.Name
+    prefix: ""
+    separator: ""
+filters:
+  instance-state-name: running
