@@ -8,10 +8,16 @@
 
 - hosts: monitoring_agent
   become: yes
+  pre_tasks:
+    - name: Include secrets
+      include_vars:
+        file: ./files/secrets.yml
+        name: secrets
+
   roles:
   - role: grafana
     vars:
-      grafana_admin_password: "q1w2e3!@"
+      grafana_admin_password: "{{ secrets.grafana_admin_password }}"
 
   - role: prometheus.prometheus.prometheus
     vars:
@@ -37,7 +43,7 @@
 
   - role: prometheus.prometheus.alertmanager
     vars:
-      alertmanager_slack_api_url: "https://hooks.slack.com/services/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"
+      alertmanager_slack_api_url: "{{ secrets.alertmanager_slack_api_url }}"
       alertmanager_receivers:
         - name: slack
           slack_configs:
@@ -61,7 +67,8 @@
       owner: root
       group: root
       mode: '0644'
-      
+      force: no
+
   - name: Copy default.yml to /etc/prometheus/rules
     copy:
       src: ./files/prometheus/rules/default.rules
@@ -69,6 +76,35 @@
       owner: root
       group: root
       mode: '0644'
+      force: no
+
+  - name: Restart Prometheus to apply the new templates
+    systemd:
+      state: restarted
+      name: alertmanager
+
+  - name: Restart Prometheus to apply the new rule
+    systemd:
+      state: restarted
+      name: prometheus
+
+  - name: Check Prometheus is running
+    uri:
+      url: "http://localhost:9090/-/healthy"
+      status_code: 200
+    register: result
+    until: result.status == 200
+    retries: 10
+    delay: 10
+
+  - name: Check Alertmanager is running
+    uri:
+      url: "http://localhost:9093/-/healthy"
+      status_code: 200
+    register: result
+    until: result.status == 200
+    retries: 10
+    delay: 10
 
 - hosts: monitoring_target
   become: yes
